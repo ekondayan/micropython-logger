@@ -43,7 +43,7 @@ class LogHandler:
     @level.setter
     def level(self, level: int):
         if not L_EMERGENCY <= level <= L_DISABLE:
-            raise ValueError('LogHandler: Invalid parameter: _level can be one of'
+            raise ValueError('LogHandler: Invalid parameter: level can be one of'
                              '[L_EMERGENCY, L_ALERT, L_CRITICAL, L_ERROR, L_WARNING, L_NOTICE, L_INFO, L_DEBUG, L_DISABLE]')
 
         self._level = level

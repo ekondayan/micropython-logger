@@ -1,8 +1,55 @@
 from .defs import *
 
+
 class Logger:
     def __init__(self):
         self._handlers = []
+
+    @staticmethod
+    def level_to_str(level: int):
+        if level == L_EMERGENCY:
+            return 'EMERGENCY'
+        elif level == L_ALERT:
+            return 'ALERT'
+        elif level == L_CRITICAL:
+            return 'CRITICAL'
+        elif level == L_ERROR:
+            return 'ERROR'
+        elif level == L_WARNING:
+            return 'WARNING'
+        elif level == L_NOTICE:
+            return 'NOTICE'
+        elif level == L_INFO:
+            return 'INFO'
+        elif level == L_DEBUG:
+            return 'DEBUG'
+        elif level == L_DISABLE:
+            return 'DISABLE'
+
+        raise ValueError('Invalid parameter: parameter "level" must be int that represent a valid severity level')
+
+    @staticmethod
+    def level_from_str(level: str):
+        if level == 'EMERGENCY':
+            return L_EMERGENCY
+        elif level == 'ALERT':
+            return L_ALERT
+        elif level == 'CRITICAL':
+            return L_CRITICAL
+        elif level == 'ERROR':
+            return L_ERROR
+        elif level == 'WARNING':
+            return L_WARNING
+        elif level == 'NOTICE':
+            return L_NOTICE
+        elif level == 'INFO':
+            return L_INFO
+        elif level == 'DEBUG':
+            return L_DEBUG
+        elif level == 'DISABLE':
+            return L_DISABLE
+
+        raise ValueError('Invalid parameter: parameter "level" must be str that represent a valid severity level')
 
     @property
     def handlers(self):
