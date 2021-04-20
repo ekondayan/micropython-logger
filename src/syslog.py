@@ -48,4 +48,4 @@ class LogSyslog(LogHandler):
         line = self._prepare_line(str(level + (1 << 3)), msg, sys, context, error_id, timestamp = timestamp)
         if line is not None:
             self._sock.sendto(line.encode('utf-8'), self._addr)
-            print(line.encode())
+
