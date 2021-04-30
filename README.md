@@ -2,8 +2,6 @@ micropython-logger
 
 
 
-At this point only a humble example is available
-
 ```python
 from lib.logger import Logger, defs as logdefs
 from lib.logger.file import LogFile
