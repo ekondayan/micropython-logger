@@ -54,9 +54,11 @@ class LogHandler:
     def _prepare_line(self, level, msg, sys = None, context = None, error_id = None, timestamp = None):
         if self._level == L_DISABLE:
             return None
-        elif not isinstance(level, (int, str)):
+        elif not isinstance(level, (int, tuple, list)):
             return None
         elif isinstance(level, int) and not L_EMERGENCY <= level <= self._level:
+            return None
+        elif isinstance(level, (tuple, list)) and not L_EMERGENCY <= level[0] <= self._level:
             return None
         elif msg is not None and not isinstance(msg, str):
             return None
@@ -65,7 +67,7 @@ class LogHandler:
         elif timestamp is not None and not isinstance(timestamp, str):
             return None
 
-        level = self._level_map[level] if isinstance(level, int) else level
+        level = self._level_map[level] if isinstance(level, int) else level[1]
 
         try:
             sys = sys_map[sys] if sys is not None else sys_map[SYS_GENERAL]
