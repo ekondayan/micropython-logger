@@ -24,7 +24,8 @@ class LogSyslog(LogHandler):
         self._port = port
         self._timeout = timeout
         self._addr = None
-
+        self._sock = usocket.socket(usocket.AF_INET, usocket.SOCK_DGRAM)
+        self._sock.settimeout(self._timeout)
 
         if log_format == self.FORMAT_RFC3164:
             hostname = ' %s' % hostname if isinstance(hostname, str) else ' '
@@ -36,6 +37,9 @@ class LogSyslog(LogHandler):
             self._line_format = self._rfc5424_format % (hostname, appname)
 
         super().__init__(name, level)
+
+    def __del__(self):
+        self._sock.close()
 
     def send(self, level, msg, sys = None, context = None, error_id = None):
         if self._log_format == self.FORMAT_RFC3164:
@@ -49,7 +53,5 @@ class LogSyslog(LogHandler):
             if self._addr is None:
                 self._addr = usocket.getaddrinfo(self._host, self._port, 0, usocket.SOCK_DGRAM)[0][-1]
 
-            s = usocket.socket(usocket.AF_INET, usocket.SOCK_DGRAM)
-            s.settimeout(self._timeout)
-            s.sendto(line.encode('utf-8'), self._addr)
+            self._sock.sendto(line.encode('utf-8'), self._addr)
 
