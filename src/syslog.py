@@ -23,7 +23,6 @@ class LogSyslog(LogHandler):
         self._host = host
         self._port = port
         self._timeout = timeout
-        self._addr = None
         self._sock = usocket.socket(usocket.AF_INET, usocket.SOCK_DGRAM)
         self._sock.settimeout(self._timeout)
 
@@ -50,8 +49,8 @@ class LogSyslog(LogHandler):
 
         line = self._prepare_line((level, str(level + (1 << 3))), msg, sys, context, error_id, timestamp = timestamp)
         if line is not None:
-            if self._addr is None:
-                self._addr = usocket.getaddrinfo(self._host, self._port, 0, usocket.SOCK_DGRAM)[0][-1]
-
-            self._sock.sendto(line.encode('utf-8'), self._addr)
-
+            try:
+                addr = usocket.getaddrinfo(self._host, self._port, 0, usocket.SOCK_DGRAM)[0][-1]
+                self._sock.sendto(line.encode('utf-8'), addr)
+            except OSError:
+                pass
