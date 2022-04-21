@@ -15,9 +15,9 @@ class LogSyslog(LogHandler):
     _rfc3164_format = '<{level}>{timestamp}%s%s {sys}{context} {err_title}{msg}'
     _rfc5424_format = '<{level}>1 {timestamp} %s %s - - - BOM{sys}{context} {err_title}{msg}'
 
-    def __init__(self, name, level = L_WARNING, host = None, port: int = 514, hostname: str = None, appname = None, log_format: int = FORMAT_RFC3164, timeout: int = 1):
-        if not isinstance(log_format, int) or not self.FORMAT_RFC3164 <= log_format <= self.FORMAT_RFC5424:
-            raise ValueError('Invalid parameter: log_format={} must be one of [FORMAT_RFC3164, FORMAT_RFC5424]'.format(log_format))
+    def __init__(self, name: str, level: int = L_WARNING, host = None, port: int = 514, hostname: str = None, appname: str = None, log_format: int = FORMAT_RFC3164, timeout: int = 1):
+        if log_format not in (self.FORMAT_RFC3164, self.FORMAT_RFC5424):
+            raise ValueError('Invalid parameter: log_format={} must be one of FORMAT_RFC3164, FORMAT_RFC5424]'.format(log_format))
 
         self._log_format = log_format
         self._host = host
@@ -40,14 +40,14 @@ class LogSyslog(LogHandler):
     def __del__(self):
         self._sock.close()
 
-    def send(self, level, msg, sys = None, context = None, error_id = None):
+    def send(self, level: int, msg: str, sys = None, context = None, error_id = None, timestamp: tuple = None):
         if self._log_format == self.FORMAT_RFC3164:
-            lt = localtime()
-            timestamp = self._rfc3164_timestamp_format.format(self.__months[lt[1] - 1], lt[2], lt[3], lt[4], lt[5])
+            timestamp = self._rfc3164_timestamp_format.format(self.__months[timestamp[1] - 1], timestamp[2], timestamp[3], timestamp[4], timestamp[5])
         else:
-            timestamp = None
+            timestamp = self._timestamp_format.format(timestamp[0], timestamp[1], timestamp[2],
+                                                      timestamp[3], timestamp[4], timestamp[5])
 
-        line = self._prepare_line((level, str(level + (1 << 3))), msg, sys, context, error_id, timestamp = timestamp)
+        line = self._prepare_line((level, str(level + 8)), msg, sys, context, error_id, timestamp = timestamp)
         if line is not None:
             try:
                 addr = usocket.getaddrinfo(self._host, self._port, 0, usocket.SOCK_DGRAM)[0][-1]

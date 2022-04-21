@@ -18,11 +18,11 @@ class LogHandler:
         'DEBUG'
     )
 
-    def __init__(self, name, level = L_WARNING):
+    def __init__(self, name: str, level: int = L_WARNING):
         if not hasattr(self, '_line_format'):
             raise Exception('LogHandler: Subclass must implement the class variable "_line_format"')
 
-        self.name = name
+        self.name = name.strip()
         self.level = level
 
     @property
@@ -48,10 +48,10 @@ class LogHandler:
 
         self._level = level
 
-    def send(self, level, msg, sys = None, context = None, error_id = None):
+    def send(self, level, msg, sys = None, context = None, error_id = None, timestamp: tuple = None):
         pass
 
-    def _prepare_line(self, level, msg, sys = None, context = None, error_id = None, timestamp = None):
+    def _prepare_line(self, level, msg, sys = None, context = None, error_id = None, timestamp: str = None):
         if self._level == L_DISABLE:
             return None
         elif not isinstance(level, (int, tuple, list)):
@@ -64,7 +64,7 @@ class LogHandler:
             return None
         elif context is not None and not isinstance(context, str):
             return None
-        elif timestamp is not None and not isinstance(timestamp, str):
+        elif not isinstance(timestamp, str):
             return None
 
         level = self._level_map[level] if isinstance(level, int) else level[1]
@@ -87,10 +87,6 @@ class LogHandler:
                 context = context.replace(' ', '_')
         else:
             context = ''
-
-        if timestamp is None:
-            lt = localtime()
-            timestamp = self._timestamp_format.format(lt[0], lt[1], lt[2], lt[3], lt[4], lt[5])
 
         return self._line_format.format(timestamp = timestamp,
                                         level = level,

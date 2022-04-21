@@ -6,7 +6,7 @@ from .handler import LogHandler
 class LogFile(LogHandler):
     _line_format = '{timestamp} [{level}] {sys}{context} {err_title}{msg}'
 
-    def __init__(self, name, level = L_WARNING, file_path: str = '/', file_size_limit: int = 4096, file_count: int = 3):
+    def __init__(self, name: str, level: int = L_WARNING, file_path: str = '/', file_size_limit: int = 4096, file_count: int = 3):
         if not isinstance(file_count, int) or not 1 <= file_count <= 99:
             raise ValueError('Invalid parameter: file_count={} must be in range 1-99'.format(file_count))
         elif not isinstance(file_size_limit, int) or not file_count > 0:
@@ -23,13 +23,14 @@ class LogFile(LogHandler):
     def __del__(self):
         self._file.close()
 
-    def send(self, level, msg, sys = None, context = None, error_id = None):
+    def send(self, level: int, msg: str, sys = None, context = None, error_id = None, timestamp: tuple = None):
         try:
             uos.stat(self._file_full_path)
         except OSError:
             self._file = open(self._file_full_path, 'at')
 
-        line = self._prepare_line(level, msg, sys, context, error_id)
+        line = self._prepare_line(level, msg, sys, context, error_id, self._timestamp_format.format(timestamp[0], timestamp[1], timestamp[2],
+                                                                                                    timestamp[3], timestamp[4], timestamp[5]))
         if line is not None:
             print(line, file = self._file)
             self._file.flush()
