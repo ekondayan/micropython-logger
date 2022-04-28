@@ -33,6 +33,7 @@ class Logger:
 
     @staticmethod
     def level_from_str(level: str):
+        level = level.upper()
         if level == 'EMERGENCY':
             return L_EMERGENCY
         elif level == 'ALERT':
