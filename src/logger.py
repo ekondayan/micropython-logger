@@ -8,51 +8,43 @@ class Logger:
         self._handlers = []
         self._localtime = None
 
+    # Pre-computed level string mapping for O(1) lookup
+    _LEVEL_TO_STR = (
+        'EMERGENCY',  # 0
+        'ALERT',      # 1
+        'CRITICAL',   # 2
+        'ERROR',      # 3
+        'WARNING',    # 4
+        'NOTICE',     # 5
+        'INFO',       # 6
+        'DEBUG',      # 7
+        'DISABLE'     # 8
+    )
+    
     @staticmethod
     def level_to_str(level: int):
-        if level == L_EMERGENCY:
-            return 'EMERGENCY'
-        elif level == L_ALERT:
-            return 'ALERT'
-        elif level == L_CRITICAL:
-            return 'CRITICAL'
-        elif level == L_ERROR:
-            return 'ERROR'
-        elif level == L_WARNING:
-            return 'WARNING'
-        elif level == L_NOTICE:
-            return 'NOTICE'
-        elif level == L_INFO:
-            return 'INFO'
-        elif level == L_DEBUG:
-            return 'DEBUG'
-        elif level == L_DISABLE:
-            return 'DISABLE'
-
+        if 0 <= level <= 8:
+            return Logger._LEVEL_TO_STR[level]
         raise ValueError('Invalid parameter: parameter "level" must be int that represent a valid severity level')
 
+    # Pre-computed string to level mapping for O(1) lookup
+    _STR_TO_LEVEL = {
+        'EMERGENCY': L_EMERGENCY,
+        'ALERT': L_ALERT,
+        'CRITICAL': L_CRITICAL,
+        'ERROR': L_ERROR,
+        'WARNING': L_WARNING,
+        'NOTICE': L_NOTICE,
+        'INFO': L_INFO,
+        'DEBUG': L_DEBUG,
+        'DISABLE': L_DISABLE
+    }
+    
     @staticmethod
     def level_from_str(level: str):
-        level = level.upper()
-        if level == 'EMERGENCY':
-            return L_EMERGENCY
-        elif level == 'ALERT':
-            return L_ALERT
-        elif level == 'CRITICAL':
-            return L_CRITICAL
-        elif level == 'ERROR':
-            return L_ERROR
-        elif level == 'WARNING':
-            return L_WARNING
-        elif level == 'NOTICE':
-            return L_NOTICE
-        elif level == 'INFO':
-            return L_INFO
-        elif level == 'DEBUG':
-            return L_DEBUG
-        elif level == 'DISABLE':
-            return L_DISABLE
-
+        level_upper = level.upper()
+        if level_upper in Logger._STR_TO_LEVEL:
+            return Logger._STR_TO_LEVEL[level_upper]
         raise ValueError('Invalid parameter: parameter "level" must be str that represent a valid severity level')
 
     @property
@@ -74,9 +66,9 @@ class Logger:
         if not isinstance(obj, LogHandler):
             raise ValueError('Log: Invalid parameter obj={}, must be a subclass of LogHandler'.format(obj))
 
-        _name_low = obj.name.lower()
+        _name_low = obj.name  # Already lowercase from handler
         for h in self._handlers:
-            if h.name.lower() == _name_low:
+            if h.name == _name_low:  # Names are already lowercase
                 raise RuntimeError('Log: A handler with the same name({}) already exists'.format(_name_low))
 
         self._handlers.append(obj)
@@ -85,9 +77,9 @@ class Logger:
         if not isinstance(name, str) or not name:
             raise ValueError('Log: Invalid parameter name={}, expected non empty string'.format(name))
 
-        _name_low = name.lower()
+        _name_low = name.strip().lower()
         for h in self._handlers:
-            if h.name.lower() == _name_low:
+            if h.name == _name_low:  # Handler names are already lowercase
                 return h
 
         return None
@@ -96,18 +88,20 @@ class Logger:
         if not isinstance(name, str) or not name:
             raise ValueError('Log: Invalid parameter name={}, expected non empty string'.format(name))
 
-        _name_low = name.lower()
+        _name_low = name.strip().lower()
         for h in self._handlers:
-            if h.name.lower() == _name_low:
+            if h.name == _name_low:  # Handler names are already lowercase
                 self._handlers.remove(h)
                 return
 
         raise RuntimeError('Log: Handler with name={} does not exists'.format(name))
 
     def log(self, level: int, msg: str, sys, context, error_id, exception = None):
-        for h in self._handlers:
+        # Calculate localtime once for all handlers
+        if self._handlers:  # Only calculate if we have handlers
             lt = self._localtime() if callable(self._localtime) else localtime()
-            h.send(level, msg, sys, context, error_id, lt)
+            for h in self._handlers:
+                h.send(level, msg, sys, context, error_id, lt)
 
         if exception is not None:
             if isinstance(exception, type) and issubclass(exception, Exception):

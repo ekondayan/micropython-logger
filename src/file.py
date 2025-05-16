@@ -1,10 +1,11 @@
 import os
+from micropython import const
 
 from .defs import *
 from .handler import LogHandler
 
 class LogFile(LogHandler):
-    _line_format = '{timestamp} [{level}] {sys}{context} {err_title}{msg}'
+    _line_format = const('{timestamp} [{level}] {sys}{context} {err_title}{msg}')
 
     def __init__(self, name: str, level: int = L_WARNING, file_path: str = '/', file_size_limit: int = 4096, file_count: int = 3):
         if not isinstance(file_count, int) or not 1 <= file_count <= 99:
@@ -17,7 +18,8 @@ class LogFile(LogHandler):
         self._file_size_limit = file_size_limit
         self._file_count = file_count
 
-        self._file_full_path = '{}/{}.log'.format(file_path.rstrip('/'), name)
+        # More efficient path building
+        self._file_full_path = file_path.rstrip('/') + '/' + name + '.log'
         self._file = open(self._file_full_path, 'at')
 
     def __del__(self):
@@ -48,9 +50,11 @@ class LogFile(LogHandler):
                 self.log_rotate()
 
     def log_rotate(self):
+        # Pre-compute base path to avoid repeated string operations
+        base = self._file_full_path + '.'
         for i in range(self._file_count - 1, 0, -1):
-            old_filename = '{}.{}'.format(self._file_full_path, i)
-            new_filename = '{}.{}'.format(self._file_full_path, i + 1)
+            old_filename = base + str(i)
+            new_filename = base + str(i + 1)
             try:
                 os.rename(old_filename, new_filename)
             except:

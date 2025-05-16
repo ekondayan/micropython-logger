@@ -10,10 +10,11 @@ class LogSyslog(LogHandler):
     FORMAT_RFC3164 = const(0)
     FORMAT_RFC5424 = const(1)
 
-    __months = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
-    _rfc3164_timestamp_format = '{} {:2d} {:02d}:{:02d}:{:02d}'
-    _rfc3164_format = '<{level}>{timestamp}%s%s {sys}{context} {err_title}{msg}'
-    _rfc5424_format = '<{level}>1 {timestamp} %s %s - - - BOM{sys}{context} {err_title}{msg}'
+    __months = (const('Jan'), const('Feb'), const('Mar'), const('Apr'), const('May'), const('Jun'), 
+                const('Jul'), const('Aug'), const('Sep'), const('Oct'), const('Nov'), const('Dec'))
+    _rfc3164_timestamp_format = const('{} {:2d} {:02d}:{:02d}:{:02d}')
+    _rfc3164_format = const('<{level}>{timestamp}%s%s {sys}{context} {err_title}{msg}')
+    _rfc5424_format = const('<{level}>1 {timestamp} %s %s - - - BOM{sys}{context} {err_title}{msg}')
 
     def __init__(self, name: str, level: int = L_WARNING, host = None, port: int = 514, hostname: str = None, appname: str = None, log_format: int = FORMAT_RFC3164, timeout: int = 1):
         if log_format not in (self.FORMAT_RFC3164, self.FORMAT_RFC5424):

@@ -1,11 +1,13 @@
 from time import localtime
+from micropython import const
 
 from .defs import *
 
 
 class LogHandler:
-    _err_title_format = '{}(#{}): '
-    _timestamp_format = '{:4d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}'
+    _err_title_format = const('{}(#{}): ')
+    _timestamp_format = const('{:4d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}')
+    _empty_str = const('')  # Pre-interned empty string
 
     # Use const() for level strings - they're used repeatedly
     _level_map = (
@@ -49,7 +51,7 @@ class LogHandler:
 
         self._level = level
 
-    def send(self, level, msg, sys = None, context = None, error_id = None, timestamp: tuple = None):
+    def send(self, level, msg, sys=None, context=None, error_id=None, timestamp: tuple = None):
         pass
 
     def _prepare_line(self, level, msg, sys = None, context = None, error_id = None, timestamp: str = None):
@@ -70,24 +72,31 @@ class LogHandler:
 
         level = self._level_map[level] if isinstance(level, int) else level[1]
 
-        try:
-            sys = sys_map[sys] if sys is not None else sys_map[SYS_GENERAL]
-        except KeyError:
-            return None
-
-        try:
-            err_title = self._err_title_format.format(errors_map[error_id], error_id) if error_id is not None else ''
-        except KeyError:
-            return None
-
-        if isinstance(context, str):
-            if len(context) != 0:
-                context = '@%s' % context
-
-            if ' ' in context:
-                context = context.replace(' ', '_')
+        # Optimize dictionary lookup - check existence first
+        if sys is not None:
+            if sys not in sys_map:
+                return None
+            sys = sys_map[sys]
         else:
-            context = ''
+            sys = sys_map[SYS_GENERAL]
+
+        # Optimize error lookup - check existence first
+        if error_id is not None:
+            if error_id not in errors_map:
+                return None
+            err_title = self._err_title_format.format(errors_map[error_id], error_id)
+        else:
+            err_title = self._empty_str
+
+        # Optimize context string operations
+        if isinstance(context, str) and context:  # More efficient than len() != 0
+            # Combine operations to minimize string manipulations
+            if ' ' in context:
+                context = '@' + context.replace(' ', '_')
+            else:
+                context = '@' + context
+        else:
+            context = self._empty_str
 
         return self._line_format.format(timestamp = timestamp,
                                         level = level,
