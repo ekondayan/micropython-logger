@@ -1,4 +1,4 @@
-import uos
+import os
 
 from .defs import *
 from .handler import LogHandler
@@ -9,7 +9,7 @@ class LogFile(LogHandler):
     def __init__(self, name: str, level: int = L_WARNING, file_path: str = '/', file_size_limit: int = 4096, file_count: int = 3):
         if not isinstance(file_count, int) or not 1 <= file_count <= 99:
             raise ValueError('Invalid parameter: file_count={} must be in range 1-99'.format(file_count))
-        elif not isinstance(file_size_limit, int) or not file_count > 0:
+        elif not isinstance(file_size_limit, int) or not file_size_limit > 0:
             raise ValueError('Invalid parameter: file_size_limit={} must be greater than 0'.format(file_size_limit))
 
         super().__init__(name, level)
@@ -21,12 +21,21 @@ class LogFile(LogHandler):
         self._file = open(self._file_full_path, 'at')
 
     def __del__(self):
-        self._file.close()
+        if hasattr(self, '_file') and self._file:
+            try:
+                self._file.close()
+            except:
+                pass
 
     def send(self, level: int, msg: str, sys = None, context = None, error_id = None, timestamp: tuple = None):
         try:
-            uos.stat(self._file_full_path)
+            os.stat(self._file_full_path)
         except OSError:
+            if hasattr(self, '_file') and self._file:
+                try:
+                    self._file.close()
+                except:
+                    pass
             self._file = open(self._file_full_path, 'at')
 
         line = self._prepare_line(level, msg, sys, context, error_id, self._timestamp_format.format(timestamp[0], timestamp[1], timestamp[2],
@@ -34,7 +43,7 @@ class LogFile(LogHandler):
         if line is not None:
             print(line, file = self._file)
             self._file.flush()
-            size = uos.stat(self._file_full_path)[6]
+            size = os.stat(self._file_full_path)[6]
             if size > self._file_size_limit:
                 self.log_rotate()
 
@@ -43,28 +52,28 @@ class LogFile(LogHandler):
             old_filename = '{}.{}'.format(self._file_full_path, i)
             new_filename = '{}.{}'.format(self._file_full_path, i + 1)
             try:
-                uos.rename(old_filename, new_filename)
+                os.rename(old_filename, new_filename)
             except:
                 pass
 
         try:
-            uos.remove('{}.{}'.format(self._file_full_path, self._file_count))
+            os.remove('{}.{}'.format(self._file_full_path, self._file_count))
         except:
             pass
 
         self._file.close()
-        uos.rename(self._file_full_path, self._file_full_path + '.1')
+        os.rename(self._file_full_path, self._file_full_path + '.1')
 
         self._file = open(self._file_full_path, 'at')
 
     def delete_logs(self):
         try:
-            uos.remove(self._file_full_path)
+            os.remove(self._file_full_path)
         except:
             pass
 
         for i in range(1, self._file_count):
             try:
-                uos.remove('{}.{}'.format(self._file_full_path, i))
+                os.remove('{}.{}'.format(self._file_full_path, i))
             except:
                 pass

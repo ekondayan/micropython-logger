@@ -1,4 +1,4 @@
-import usocket
+import socket
 from time import localtime
 from micropython import const
 
@@ -23,8 +23,10 @@ class LogSyslog(LogHandler):
         self._host = host
         self._port = port
         self._timeout = timeout
-        self._sock = usocket.socket(usocket.AF_INET, usocket.SOCK_DGRAM)
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._sock.settimeout(self._timeout)
+        self._addr_cache = None
+        self._addr_cache_time = 0
 
         if log_format == self.FORMAT_RFC3164:
             hostname = ' %s' % hostname if isinstance(hostname, str) else ' '
@@ -38,7 +40,11 @@ class LogSyslog(LogHandler):
         super().__init__(name, level)
 
     def __del__(self):
-        self._sock.close()
+        if hasattr(self, '_sock') and self._sock:
+            try:
+                self._sock.close()
+            except:
+                pass
 
     def send(self, level: int, msg: str, sys = None, context = None, error_id = None, timestamp: tuple = None):
         if self._log_format == self.FORMAT_RFC3164:
@@ -50,7 +56,13 @@ class LogSyslog(LogHandler):
         line = self._prepare_line((level, str(level + 8)), msg, sys, context, error_id, timestamp = timestamp)
         if line is not None:
             try:
-                addr = usocket.getaddrinfo(self._host, self._port, 0, usocket.SOCK_DGRAM)[0][-1]
-                self._sock.sendto(line.encode('utf-8'), addr)
+                # Cache DNS resolution for 60 seconds
+                import time
+                current_time = time.time()
+                if self._addr_cache is None or (current_time - self._addr_cache_time) > 60:
+                    self._addr_cache = socket.getaddrinfo(self._host, self._port, 0, socket.SOCK_DGRAM)[0][-1]
+                    self._addr_cache_time = current_time
+                
+                self._sock.sendto(line.encode('utf-8'), self._addr_cache)
             except OSError:
                 pass

@@ -7,15 +7,16 @@ class LogHandler:
     _err_title_format = '{}(#{}): '
     _timestamp_format = '{:4d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}'
 
+    # Use const() for level strings - they're used repeatedly
     _level_map = (
-        'EMERGENCY',
-        'ALERT',
-        'CRITICAL',
-        'ERROR',
-        'WARNING',
-        'NOTICE',
-        'INFORMATION',
-        'DEBUG'
+        const('EMERGENCY'),
+        const('ALERT'),
+        const('CRITICAL'),
+        const('ERROR'),
+        const('WARNING'),
+        const('NOTICE'),
+        const('INFORMATION'),
+        const('DEBUG')
     )
 
     def __init__(self, name: str, level: int = L_WARNING):
@@ -71,12 +72,12 @@ class LogHandler:
 
         try:
             sys = sys_map[sys] if sys is not None else sys_map[SYS_GENERAL]
-        except IndexError:
+        except KeyError:
             return None
 
         try:
             err_title = self._err_title_format.format(errors_map[error_id], error_id) if error_id is not None else ''
-        except IndexError:
+        except KeyError:
             return None
 
         if isinstance(context, str):

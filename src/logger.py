@@ -72,7 +72,7 @@ class Logger:
         from .handler import LogHandler
 
         if not isinstance(obj, LogHandler):
-            raise ValueError('Log: Invalid parameter obj={}, must be a subclass of LogHandler'.format(name))
+            raise ValueError('Log: Invalid parameter obj={}, must be a subclass of LogHandler'.format(obj))
 
         _name_low = obj.name.lower()
         for h in self._handlers:
@@ -109,8 +109,11 @@ class Logger:
             lt = self._localtime() if callable(self._localtime) else localtime()
             h.send(level, msg, sys, context, error_id, lt)
 
-        if type(exception).__name__ == 'type' and issubclass(exception, Exception):
-            raise exception(msg)
+        if exception is not None:
+            if isinstance(exception, type) and issubclass(exception, Exception):
+                raise exception(msg)
+            elif isinstance(exception, Exception):
+                raise exception
 
     def emergency(self, msg: str, sys = None, context = None, error_id = None, exception = None):
         self.log(L_EMERGENCY, msg, sys, context, error_id, exception)

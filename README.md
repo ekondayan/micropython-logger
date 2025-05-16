@@ -9,8 +9,8 @@ from lib.logger.syslog import LogSyslog
 log = Logger()
 
 log.add_handler(LogConsole(level = Logger.level_from_str('DEBUG')))
-log.add_handler(LogSyslog('syslog1', level = Logger.level_from_str('WARNING'), ip = '127.0.0.1', port = 514, appname = 'YourAppNameHere', log_format = LogSyslog.FORMAT_RFC3164))
-log.add_handler(LogSyslog('syslog2', level = Logger.level_from_str('WARNING'), ip = '127.0.0.1', port = 514, appname = 'YourAppNameHere', log_format = LogSyslog.FORMAT_RFC5424))
+log.add_handler(LogSyslog('syslog1', level = Logger.level_from_str('WARNING'), host = '127.0.0.1', port = 514, appname = 'YourAppNameHere', log_format = LogSyslog.FORMAT_RFC3164))
+log.add_handler(LogSyslog('syslog2', level = Logger.level_from_str('WARNING'), host = '127.0.0.1', port = 514, appname = 'YourAppNameHere', log_format = LogSyslog.FORMAT_RFC5424))
 # file_size_limit - set the size limit for the log rotate
 # file_count - set the file count limit for the log rotate. For example the following handler will manage 3 log files(system1.log, system1.log.1, system1.log.2)
 log.add_handler(LogFile('system1', level = Logger.level_from_str('INFO'), file_path = '/', file_size_limit = 4096, file_count = 3))

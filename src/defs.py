@@ -15,12 +15,13 @@ SYS_GENERAL = const(0)
 
 ERROR_UNKNOWN = const(0)
 
+# Use const() for string interning - reduces memory on repeated use
 sys_map = {
-    SYS_GENERAL: 'GENERAL',
+    SYS_GENERAL: const('GENERAL'),
 }
 
 errors_map = {
-    ERROR_UNKNOWN: 'Unknown error',
+    ERROR_UNKNOWN: const('Unknown error'),
 }
 
 try:
