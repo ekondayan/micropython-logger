@@ -1,6 +1,6 @@
 # MicroPython Logger
 
-A lightweight, flexible logging library designed specifically for MicroPython environments. This library provides a familiar logging interface similar to Python's standard logging module while being optimized for the memory and performance constraints of embedded systems.
+A lightweight, flexible logging library designed specifically for MicroPython environments. This library provides a logging interface optimized for the memory and performance constraints of embedded systems.
 
 ## Table of Contents
 
