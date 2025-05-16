@@ -57,7 +57,7 @@ A lightweight, flexible logging library designed specifically for MicroPython en
 ### For Development/Testing
 
 ```bash
-git clone https://github.com/your-repo/micropython-logger.git
+git clone https://github.com/ekondayan/micropython-logger.git
 cd micropython-logger
 ```
 
