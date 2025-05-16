@@ -2,7 +2,7 @@ import socket
 from time import localtime
 from micropython import const
 
-from .defs import *
+from .defs import L_WARNING
 from .handler import LogHandler
 
 
@@ -10,15 +10,15 @@ class LogSyslog(LogHandler):
     FORMAT_RFC3164 = const(0)
     FORMAT_RFC5424 = const(1)
 
-    __months = (const('Jan'), const('Feb'), const('Mar'), const('Apr'), const('May'), const('Jun'), 
+    __months = (const('Jan'), const('Feb'), const('Mar'), const('Apr'), const('May'), const('Jun'),
                 const('Jul'), const('Aug'), const('Sep'), const('Oct'), const('Nov'), const('Dec'))
     _rfc3164_timestamp_format = const('{} {:2d} {:02d}:{:02d}:{:02d}')
     _rfc3164_format = const('<{level}>{timestamp}%s%s {sys}{context} {err_title}{msg}')
     _rfc5424_format = const('<{level}>1 {timestamp} %s %s - - - BOM{sys}{context} {err_title}{msg}')
 
-    def __init__(self, name: str, level: int = L_WARNING, host = None, port: int = 514, hostname: str = None, appname: str = None, log_format: int = FORMAT_RFC3164, timeout: int = 1):
+    def __init__(self, name: str, level: int = L_WARNING, host = None, port: int = 514, hostname: str = None, appname: str = None, log_format: int = FORMAT_RFC3164, timeout: int = 1, print_errors: bool = False):
         if log_format not in (self.FORMAT_RFC3164, self.FORMAT_RFC5424):
-            raise ValueError('Invalid parameter: log_format={} must be one of FORMAT_RFC3164, FORMAT_RFC5424]'.format(log_format))
+            raise ValueError(f'Invalid parameter: log_format={log_format} must be one of [FORMAT_RFC3164, FORMAT_RFC5424]')
 
         self._log_format = log_format
         self._host = host
@@ -38,23 +38,30 @@ class LogSyslog(LogHandler):
             appname = appname if isinstance(appname, str) else '-'
             self._line_format = self._rfc5424_format % (hostname, appname)
 
-        super().__init__(name, level)
+        super().__init__(name, level, print_errors)
 
     def __del__(self):
         if hasattr(self, '_sock') and self._sock:
             try:
                 self._sock.close()
-            except:
-                pass
+            except Exception as e:
+                if self._print_errors:
+                    print(f"LogSyslog[{self.name}]: Failed to close socket: {e}")
+
+    def _format_timestamp_tuple(self, timestamp: tuple):
+        """Override to handle RFC3164 and RFC5424 formats"""
+        if timestamp is None:
+            timestamp = localtime()
+
+        if self._log_format == self.FORMAT_RFC3164:
+            return self._rfc3164_timestamp_format.format(self.__months[timestamp[1] - 1], timestamp[2], timestamp[3], timestamp[4], timestamp[5])
+        else:
+            return self._timestamp_format.format(*timestamp[:6])
 
     def send(self, level: int, msg: str, sys = None, context = None, error_id = None, timestamp: tuple = None):
-        if self._log_format == self.FORMAT_RFC3164:
-            timestamp = self._rfc3164_timestamp_format.format(self.__months[timestamp[1] - 1], timestamp[2], timestamp[3], timestamp[4], timestamp[5])
-        else:
-            timestamp = self._timestamp_format.format(timestamp[0], timestamp[1], timestamp[2],
-                                                      timestamp[3], timestamp[4], timestamp[5])
-
-        line = self._prepare_line((level, str(level + 8)), msg, sys, context, error_id, timestamp = timestamp)
+        # Syslog uses a tuple format for level: [numeric_level, syslog_priority_string]
+        # The string represents the syslog priority (level + 8) as required by syslog protocol
+        line = self._prepare_line((level, str(level + 8)), msg, sys, context, error_id, timestamp = self._format_timestamp_tuple(timestamp))
         if line is not None:
             try:
                 # Cache DNS resolution for 60 seconds
@@ -63,7 +70,8 @@ class LogSyslog(LogHandler):
                 if self._addr_cache is None or (current_time - self._addr_cache_time) > 60:
                     self._addr_cache = socket.getaddrinfo(self._host, self._port, 0, socket.SOCK_DGRAM)[0][-1]
                     self._addr_cache_time = current_time
-                
+
                 self._sock.sendto(line.encode('utf-8'), self._addr_cache)
-            except OSError:
-                pass
+            except OSError as e:
+                if self._print_errors:
+                    print(f"LogSyslog[{self.name}]: Network error - {self._host}:{self._port} - {e}")
