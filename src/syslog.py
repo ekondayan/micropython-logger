@@ -10,11 +10,11 @@ class LogSyslog(LogHandler):
     FORMAT_RFC3164 = const(0)
     FORMAT_RFC5424 = const(1)
 
-    __months = (const('Jan'), const('Feb'), const('Mar'), const('Apr'), const('May'), const('Jun'),
-                const('Jul'), const('Aug'), const('Sep'), const('Oct'), const('Nov'), const('Dec'))
-    _rfc3164_timestamp_format = const('{} {:2d} {:02d}:{:02d}:{:02d}')
-    _rfc3164_format = const('<{level}>{timestamp}%s%s {sys}{context} {err_title}{msg}')
-    _rfc5424_format = const('<{level}>1 {timestamp} %s %s - - - BOM{sys}{context} {err_title}{msg}')
+    __months = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
+    _rfc3164_timestamp_format = '{} {:2d} {:02d}:{:02d}:{:02d}'
+    _rfc3164_format = '<{level}>{timestamp}%s%s {sys}{context} {err_title}{msg}'
+    _rfc5424_format = '<{level}>1 {timestamp} %s %s - - - BOM{sys}{context} {err_title}{msg}'
     
     # Default line format (will be overridden in __init__)
     _line_format = _rfc3164_format

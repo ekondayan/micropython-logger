@@ -1,12 +1,11 @@
 import os
-from micropython import const
 
 from .defs import L_WARNING
 from .handler import LogHandler
 
 
 class LogFile(LogHandler):
-    _line_format = const('{timestamp} [{level}] {sys}{context} {err_title}{msg}')
+    _line_format = '{timestamp} [{level}] {sys}{context} {err_title}{msg}'
 
     def __init__(self, name: str, level: int = L_WARNING, file_path: str = '/', file_size_limit: int = 4096, file_count: int = 3, print_errors: bool = False):
         if not isinstance(file_count, int) or not 1 <= file_count <= 99:

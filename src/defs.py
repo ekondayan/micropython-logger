@@ -183,15 +183,15 @@ def add_system(name, sys_id=None):
     
     Args:
         name: Human-readable system name (str, required)
-              Will be displayed in log messages
+              Will be converted to uppercase and displayed in log messages
         sys_id: Unique identifier for the system (int or None, optional)
                 If None, automatically generates the next available ID
               
     Returns:
-        int: The system ID (const-wrapped if available) for use as a constant
+        int: The system ID for use as a constant
         
     Raises:
-        ValueError: If name is empty/whitespace or sys_id already exists
+        ValueError: If name is empty/whitespace, already exists, or sys_id already exists
         TypeError: If sys_id is not int/None or name is not string
         
     Examples:
@@ -214,6 +214,13 @@ def add_system(name, sys_id=None):
     if not name or not isinstance(name, str) or not name.strip():
         raise ValueError("System name must be a non-empty string")
     
+    # Normalize the name to uppercase
+    name_normalized = name.strip().upper()
+    
+    # Check for name uniqueness
+    if name_normalized in sys_map.values():
+        raise ValueError(f"System name '{name_normalized}' already exists")
+    
     if sys_id is None:
         # Auto-generate ID: find highest existing ID and add 1
         if sys_map:
@@ -232,8 +239,7 @@ def add_system(name, sys_id=None):
             raise ValueError(f"System ID {sys_id} already exists")
     
     # Register the system
-    sys_id = const(sys_id) if const else sys_id
-    sys_map[sys_id] = const(name.strip()) if const else name.strip()
+    sys_map[sys_id] = name_normalized
     return sys_id
 
 def add_error(description, error_id=None):
@@ -301,8 +307,7 @@ def add_error(description, error_id=None):
             raise ValueError(f"Error ID {error_id} already exists")
     
     # Register the error
-    error_id = const(error_id) if const else error_id
-    errors_map[error_id] = const(description.strip()) if const else description.strip()
+    errors_map[error_id] = description.strip()
     return error_id
 
 # === BACKWARD COMPATIBILITY LAYER ===

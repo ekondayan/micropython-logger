@@ -1,13 +1,11 @@
 from time import localtime
-from micropython import const
 
 from .defs import LEVEL_NAMES, sys_map, errors_map, SYS_GENERAL, L_EMERGENCY, L_WARNING, L_DISABLE, level_from_str
 
 
 class LogHandler:
-    _err_title_format = const('{}(#{}): ')
-    _timestamp_format = const('{:4d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}')
-    _empty_str = const('')  # Pre-interned empty string
+    _err_title_format = '{}(#{}): '
+    _timestamp_format = '{:4d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}'
 
 
     def __init__(self, name: str, level: int = L_WARNING, print_errors: bool = False):
@@ -124,14 +122,14 @@ class LogHandler:
                 return None
             err_title = self._err_title_format.format(errors_map[error_id], error_id)
         else:
-            err_title = self._empty_str
+            err_title = ''
 
         # Optimize context string operations
         if isinstance(context, str) and context:  # More efficient than len() != 0
             # Always replace spaces - no-op if none exist
             context = '@' + context.replace(' ', '_')
         else:
-            context = self._empty_str
+            context = ''
 
         # Handlers should always provide formatted timestamp
         if timestamp is None:

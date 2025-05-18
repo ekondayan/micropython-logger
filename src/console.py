@@ -1,11 +1,9 @@
-from micropython import const
-
 from .defs import L_WARNING
 from .handler import LogHandler
 
 
 class LogConsole(LogHandler):
-    _line_format = const('{timestamp} [{level}] {sys}{context} {err_title}{msg}')
+    _line_format = '{timestamp} [{level}] {sys}{context} {err_title}{msg}'
 
     def __init__(self, name: str = 'console', level: int = L_WARNING, print_errors: bool = False):
         super().__init__(name, level, print_errors)
