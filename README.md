@@ -32,9 +32,11 @@ A lightweight, flexible logging library designed specifically for MicroPython en
 - **Syslog Support**: Both RFC3164 and RFC5424 syslog formats
 - **Memory Efficient**: Optimized for MicroPython's constrained environments
 - **Extensible**: Easy to add custom handlers and extend functionality
+- **Runtime Registration**: Dynamic system and error definition with validation
 - **Context Support**: Add context information to log messages
 - **Error Mapping**: Map error codes to human-readable messages
 - **Exception Integration**: Automatically raise exceptions from log messages
+- **Debug Support**: Optional error printing for handler debugging
 
 ## Installation
 
@@ -64,26 +66,35 @@ cd micropython-logger
 ## Quick Start
 
 ```python
-from lib.logger import Logger
-from lib.logger.console import LogConsole
-from lib.logger.file import LogFile
-from lib.logger.syslog import LogSyslog
+from logger import Logger
+from logger.console import LogConsole
+from logger.file import LogFile
+from logger.syslog import LogSyslog
+from logger.defs import add_system, add_error, L_DEBUG, L_INFO
 
 # Create a logger instance
 log = Logger()
 
+# Define custom systems (names will be automatically converted to uppercase)
+SYS_NETWORK = add_system('network')  # Will be stored as 'NETWORK'
+SYS_DATABASE = add_system('Database')  # Will be stored as 'DATABASE'
+
+# Define custom errors
+ERROR_TIMEOUT = add_error('Connection timeout')
+ERROR_INVALID = add_error('Invalid data format')
+
 # Add a console handler that logs DEBUG and above
-log.add_handler(LogConsole(level=Logger.level_from_str('DEBUG')))
+log.add_handler(LogConsole(level=L_DEBUG))
 
 # Add a file handler that logs INFO and above
-log.add_handler(LogFile('app', level=Logger.level_from_str('INFO'), 
+log.add_handler(LogFile('app', level=L_INFO, 
                        file_path='/logs', file_size_limit=10240))
 
 # Log some messages
 log.debug('Debug message')
-log.info('Information message')
-log.warn('Warning message')
-log.error('Error message')
+log.info('System initialized', sys=SYS_NETWORK)
+log.warn('High memory usage', sys=SYS_DATABASE)
+log.error('Request failed', sys=SYS_NETWORK, error_id=ERROR_TIMEOUT)
 ```
 
 ## Architecture
@@ -118,12 +129,17 @@ The library supports standard syslog severity levels:
 Outputs log messages to the console (stdout).
 
 ```python
-from lib.logger.console import LogConsole
+from logger.console import LogConsole
+from logger.defs import L_WARNING
 
 handler = LogConsole(
     name='console',          # Handler name (optional, default: 'console')
-    level=L_WARNING         # Minimum log level (default: L_WARNING)
+    level=L_WARNING,         # Minimum log level (default: L_WARNING)
+    print_errors=False       # Whether to print handler errors (default: False)
 )
+
+# Simplest form - all defaults
+handler = LogConsole()  # name='console', level=L_WARNING, print_errors=False
 ```
 
 **Output Format**: `{timestamp} [{level}] {sys}{context} {err_title}{msg}`
@@ -133,14 +149,15 @@ handler = LogConsole(
 Writes log messages to files with automatic rotation.
 
 ```python
-from lib.logger.file import LogFile
+from logger.file import LogFile
 
 handler = LogFile(
     name='app',             # Base filename (required)
     level=L_WARNING,        # Minimum log level (default: L_WARNING)
     file_path='/',          # Directory path (default: '/')
     file_size_limit=4096,   # Max file size in bytes (default: 4096)
-    file_count=3           # Number of backup files (default: 3)
+    file_count=3,           # Number of backup files (default: 3)
+    print_errors=False      # Whether to print handler errors (default: False)
 )
 ```
 
@@ -157,7 +174,7 @@ handler = LogFile(
 Sends log messages to a syslog server via UDP.
 
 ```python
-from lib.logger.syslog import LogSyslog
+from logger.syslog import LogSyslog
 
 handler = LogSyslog(
     name='syslog',                          # Handler name (required)
@@ -167,14 +184,22 @@ handler = LogSyslog(
     hostname='mydevice',                    # Hostname to report
     appname='myapp',                        # Application name
     log_format=LogSyslog.FORMAT_RFC3164,    # RFC3164 or RFC5424
-    timeout=1                               # Socket timeout in seconds
+    timeout=1,                              # Socket timeout in seconds
+    print_errors=False                      # Whether to print handler errors (default: False)
 )
 ```
 
 **Supported Formats**:
 
 - `FORMAT_RFC3164`: Traditional BSD syslog format
+  - Format: `<{priority}>{timestamp} {hostname} {appname}: {sys}{context} {err_title}{msg}`
+  - Priority: log level + 8 (syslog facility)
+  - Timestamp: 'Jan 15 10:30:45' format
+  
 - `FORMAT_RFC5424`: Modern syslog protocol
+  - Format: `<{priority}>1 {timestamp} {hostname} {appname} - - - BOM{sys}{context} {err_title}{msg}`
+  - Timestamp: ISO 8601 format
+  - Includes structured data placeholders
 
 **Features**:
 
@@ -186,40 +211,56 @@ handler = LogSyslog(
 
 ### Custom System and Error Definitions
 
-Create a `user_defs.py` file in the logger directory:
+#### Modern API (Recommended)
+
+Use the runtime registration functions to define systems and errors:
 
 ```python
+from logger.defs import add_system, add_error
+
+# Define custom system identifiers (names are automatically converted to uppercase)
+SYS_NETWORK = add_system('Network', 1)   # Stored as 'NETWORK' with ID 1
+SYS_SENSOR = add_system('SENSOR', 2)     # Stored as 'SENSOR' with ID 2
+SYS_STORAGE = add_system('storage')      # Stored as 'STORAGE' with auto-generated ID
+
+# Define custom error codes
+ERROR_TIMEOUT = add_error('Connection timeout', 100)
+ERROR_INVALID_DATA = add_error('Invalid data received')  # Auto-generated ID
+
+# Use in logging
+log.error('Network timeout', sys=SYS_NETWORK, error_id=ERROR_TIMEOUT)
+# Output: 2024-01-15T10:30:45 [ERROR] NETWORK Connection timeout(#100): Network timeout
+```
+
+**Features**:
+- System names are automatically converted to uppercase for consistency
+- Names must be unique (duplicate names raise ValueError)
+- IDs can be explicit or auto-generated
+- Validation ensures no duplicate IDs or names
+
+#### Legacy API (Backward Compatible)
+
+For existing projects, you can still use the `user_defs.py` approach:
+
+```python
+# In logger/user_defs.py
 from micropython import const
 
-# Define custom system identifiers
 SYS_NETWORK = const(1)
 SYS_SENSOR = const(2)
-SYS_STORAGE = const(3)
 
 sys_map_user = {
     SYS_NETWORK: 'NETWORK',
-    SYS_SENSOR: 'SENSOR',
-    SYS_STORAGE: 'STORAGE'
+    SYS_SENSOR: 'SENSOR'
 }
 
-# Define custom error codes
-ERROR_TIMEOUT = const(1)
-ERROR_INVALID_DATA = const(2)
-
+ERROR_TIMEOUT = const(100)
 errors_map_user = {
-    ERROR_TIMEOUT: 'Operation timed out',
-    ERROR_INVALID_DATA: 'Invalid data received'
+    ERROR_TIMEOUT: 'Connection timeout'
 }
 ```
 
-Usage:
-
-```python
-from lib.logger import defs
-
-log.error('Network timeout', sys=defs.SYS_NETWORK, error_id=defs.ERROR_TIMEOUT)
-# Output: 2024-01-15T10:30:45 [ERROR] NETWORK Operation timed out(#1): Network timeout
-```
+**Note**: The legacy approach is maintained for backward compatibility but the modern API is recommended for new projects.
 
 ### Exception Integration
 
@@ -327,8 +368,15 @@ class Logger:
 
 ```python
 class LogHandler:
-    def __init__(self, name: str, level: int = L_WARNING):
-        """Initialize handler with name and level."""
+    def __init__(self, name: str, level: int = L_WARNING, print_errors: bool = False):
+        """Initialize handler with name, level, and error printing option.
+        
+        Args:
+            name: Handler name (will be converted to lowercase)
+            level: Minimum log level to process
+            print_errors: Whether to print handler errors (e.g., network failures,
+                         file access errors) to stdout for debugging
+        """
 
     @property
     def name(self) -> str:
@@ -342,15 +390,63 @@ class LogHandler:
         """Send a log message (must be implemented by subclasses)."""
 ```
 
+### Definitions Module Functions
+
+```python
+def add_system(name: str, sys_id: int = None) -> int:
+    """Register a new system identifier for categorizing log messages.
+    
+    Args:
+        name: System name (will be converted to uppercase)
+        sys_id: Optional explicit ID. If None, auto-generates next available ID
+        
+    Returns:
+        int: The system ID to use as a constant
+        
+    Raises:
+        ValueError: If name is empty, already exists, or sys_id is already used
+        TypeError: If parameters are wrong type
+        
+    Example:
+        SYS_NETWORK = add_system('network')  # Auto ID, stored as 'NETWORK'
+        SYS_DB = add_system('Database', 10)  # ID 10, stored as 'DATABASE'
+    """
+
+def add_error(description: str, error_id: int = None) -> int:
+    """Register a new error code for structured error reporting.
+    
+    Args:
+        description: Human-readable error description
+        error_id: Optional explicit ID. If None, auto-generates next available ID
+        
+    Returns:
+        int: The error ID to use as a constant
+        
+    Raises:
+        ValueError: If description is empty or error_id is already used
+        TypeError: If parameters are wrong type
+        
+    Example:
+        ERROR_TIMEOUT = add_error('Connection timeout', 100)
+        ERROR_RETRY = add_error('Retry limit exceeded')  # Auto ID
+    """
+```
+
 ## Performance Optimization
 
 This library is optimized for MicroPython environments with several performance enhancements:
 
-1. **String Interning**: Frequently used strings are interned using `const()` to reduce memory allocation
-2. **Efficient Lookups**: Log level conversions use array/dictionary lookups instead of if/elif chains
-3. **Minimal String Operations**: Optimized string building and formatting
-4. **DNS Caching**: Syslog handler caches DNS lookups to reduce network overhead
-5. **Single Time Calculation**: Timestamp is calculated once and shared among all handlers
+1. **Efficient Lookups**: Log level conversions use array/dictionary lookups instead of if/elif chains
+2. **Minimal String Operations**: Optimized string building and formatting
+3. **DNS Caching**: Syslog handler caches DNS lookups to reduce network overhead
+4. **Single Time Calculation**: Timestamp is calculated once and shared among all handlers
+5. **Memory-Conscious Design**: Careful use of string interning and object allocation
+
+### Technical Notes
+
+- System names are automatically converted to uppercase for consistency across logs
+- The library validates uniqueness of both system IDs and names to prevent confusion
+- Handler names are automatically converted to lowercase for consistent lookups
 
 ### Memory Usage Tips
 
@@ -361,100 +457,426 @@ This library is optimized for MicroPython environments with several performance 
 
 ## Examples
 
-### Basic Logging Setup
+### 1. Simplest Usage - Console Only
 
 ```python
-from lib.logger import Logger, defs as logdefs
-from lib.logger.console import LogConsole
-from lib.logger.file import LogFile
+from logger import Logger
+from logger.console import LogConsole
+
+# Create logger with console output
+log = Logger()
+log.add_handler(LogConsole())
+
+# Basic logging
+log.info('Application started')
+log.warn('Low memory warning')
+log.error('Failed to connect')
+```
+
+### 2. Basic Setup with Log Levels
+
+```python
+from logger import Logger
+from logger.console import LogConsole
+from logger.defs import L_DEBUG, L_INFO, L_WARNING, L_ERROR
+
+# Create logger
+log = Logger()
+
+# Only show warnings and above in console
+log.add_handler(LogConsole(level=L_WARNING))
+
+# These will not be shown (below WARNING level)
+log.debug('Debug information')
+log.info('Normal operation')
+
+# These will be shown
+log.warn('This is important')
+log.error('This is critical')
+```
+
+### 3. File Logging with Rotation
+
+```python
+from logger import Logger
+from logger.console import LogConsole
+from logger.file import LogFile
+from logger.defs import L_DEBUG, L_INFO
 
 # Create logger
 log = Logger()
 
 # Console for debugging
-log.add_handler(LogConsole(level=logdefs.L_DEBUG))
+log.add_handler(LogConsole(level=L_DEBUG))
 
-# File for important messages
-log.add_handler(LogFile('system', 
-                       level=logdefs.L_INFO,
-                       file_path='/logs',
-                       file_size_limit=10240,
-                       file_count=5))
+# File for permanent record (only INFO and above)
+log.add_handler(LogFile(
+    name='app',              # Creates app.log
+    level=L_INFO,
+    file_path='/logs',       # Directory for log files
+    file_size_limit=10240,   # Rotate after 10KB
+    file_count=3            # Keep 3 backup files
+))
 
-# Use the logger
-log.info('System started')
-log.debug('Debug mode enabled')
+log.info('Application started')
+log.debug('Debug info - only in console')
 ```
 
-### IoT Device Example
+### 4. Using Systems for Organization
 
 ```python
-from lib.logger import Logger, defs
-from lib.logger.syslog import LogSyslog
-from lib.logger.file import LogFile
+from logger import Logger
+from logger.console import LogConsole
+from logger.defs import add_system
 
-# Setup for an IoT device
+# Define logical systems (automatically uppercase)
+SYS_NETWORK = add_system('network')    # Will be 'NETWORK'
+SYS_DATABASE = add_system('database')  # Will be 'DATABASE' 
+SYS_AUTH = add_system('auth')          # Will be 'AUTH'
+
+# Create logger
+log = Logger()
+log.add_handler(LogConsole())
+
+# Log with system context
+log.info('Connected to server', sys=SYS_NETWORK)
+log.info('User logged in', sys=SYS_AUTH)
+log.error('Query failed', sys=SYS_DATABASE)
+
+# Output:
+# 2024-01-15T10:30:45 [INFO] NETWORK Connected to server
+# 2024-01-15T10:30:46 [INFO] AUTH User logged in
+# 2024-01-15T10:30:47 [ERROR] DATABASE Query failed
+```
+
+### 5. Error Codes and Structured Errors
+
+```python
+from logger import Logger
+from logger.console import LogConsole
+from logger.defs import add_system, add_error
+
+# Define systems and error codes
+SYS_API = add_system('api')
+ERROR_TIMEOUT = add_error('Request timeout', 100)
+ERROR_AUTH_FAIL = add_error('Authentication failed', 101)
+ERROR_INVALID_JSON = add_error('Invalid JSON payload', 102)
+
+# Create logger
+log = Logger()
+log.add_handler(LogConsole())
+
+# Use error codes for structured logging
+log.error('API request failed', 
+         sys=SYS_API, 
+         error_id=ERROR_TIMEOUT)
+
+# Output:
+# 2024-01-15T10:30:45 [ERROR] API Request timeout(#100): API request failed
+```
+
+### 6. Context-Aware Logging
+
+```python
+from logger import Logger
+from logger.console import LogConsole
+from logger.defs import add_system, add_error
+
+# Define system and errors
+SYS_PROCESSOR = add_system('processor')
+ERROR_VALIDATION = add_error('Validation failed')
+
+# Create logger
+log = Logger()
+log.add_handler(LogConsole())
+
+def process_order(order_id):
+    log.info('Processing order', 
+            sys=SYS_PROCESSOR, 
+            context=f'order_{order_id}')
+    
+    # Context helps track flow
+    log.debug('Validating items', 
+             sys=SYS_PROCESSOR, 
+             context=f'order_{order_id}.validate')
+    
+    log.error('Invalid quantity', 
+             sys=SYS_PROCESSOR,
+             context=f'order_{order_id}.validate',
+             error_id=ERROR_VALIDATION)
+
+# Output shows the execution context
+# 2024-01-15T10:30:45 [INFO] PROCESSOR@order_123 Processing order
+# 2024-01-15T10:30:45 [DEBUG] PROCESSOR@order_123.validate Validating items
+# 2024-01-15T10:30:45 [ERROR] PROCESSOR@order_123.validate Validation failed(#1): Invalid quantity
+```
+
+### 7. Exception Integration
+
+```python
+from logger import Logger
+from logger.console import LogConsole
+from logger.defs import add_system
+
+SYS_NETWORK = add_system('network')
+
+# Create logger
+log = Logger()
+log.add_handler(LogConsole())
+
+class NetworkError(Exception):
+    pass
+
+# Log and raise exception in one call
+try:
+    log.error('Connection failed', 
+             sys=SYS_NETWORK,
+             exception=NetworkError)
+except NetworkError as e:
+    print(f'Caught: {e}')
+    
+# Log with existing exception
+try:
+    raise ValueError('Invalid port')
+except ValueError as e:
+    log.error('Configuration error', 
+             sys=SYS_NETWORK,
+             exception=e)  # Re-raises the same exception
+```
+
+### 8. Multi-Handler Setup
+
+```python
+from logger import Logger
+from logger.console import LogConsole
+from logger.file import LogFile
+from logger.syslog import LogSyslog
+from logger.defs import L_DEBUG, L_INFO, L_WARNING, L_ERROR
+
+# Create logger
 log = Logger()
 
-# Local file logging for critical errors
-log.add_handler(LogFile('device',
-                       level=defs.L_ERROR,
-                       file_path='/flash/logs',
-                       file_size_limit=4096))
+# Different handlers for different purposes
+log.add_handler(LogConsole(
+    name='debug_console',
+    level=L_DEBUG
+))
 
-# Remote syslog for monitoring
-log.add_handler(LogSyslog('remote',
-                         level=defs.L_WARNING,
-                         host='log.example.com',
-                         port=514,
-                         hostname='sensor-001',
-                         appname='temperature-monitor'))
+log.add_handler(LogFile(
+    name='main',
+    level=L_INFO,
+    file_path='/logs'
+))
 
-# Log sensor data
-def read_sensor():
-    try:
-        temperature = sensor.read_temperature()
-        if temperature > 50:
-            log.warn('High temperature detected', 
-                    sys=defs.SYS_SENSOR,
-                    context='read_sensor',
-                    error_id=defs.ERROR_HIGH_TEMP)
-        return temperature
-    except Exception as e:
-        log.error('Sensor read failed',
-                 sys=defs.SYS_SENSOR,
-                 context='read_sensor',
-                 exception=e)
-        raise
+log.add_handler(LogFile(
+    name='errors',
+    level=L_ERROR,
+    file_path='/logs/errors'
+))
+
+log.add_handler(LogSyslog(
+    name='remote',
+    level=L_WARNING,
+    host='192.168.1.100'
+))
+
+# Messages go to appropriate handlers based on level
+log.debug('Debug info')      # Only console
+log.info('Normal message')   # Console + main.log
+log.warn('Warning')          # Console + main.log + syslog
+log.error('Error')           # All handlers
 ```
 
-### Context-Aware Logging
+### 9. Dynamic Handler Management
 
 ```python
-class DataProcessor:
-    def __init__(self, logger):
-        self.log = logger
+from logger import Logger
+from logger.console import LogConsole
+from logger.file import LogFile
+from logger.defs import L_DEBUG, L_WARNING, L_DISABLE
 
-    def process_data(self, data):
-        self.log.debug('Processing started',
-                      context='process_data')
+# Create logger
+log = Logger()
 
-        if not self.validate_data(data):
-            self.log.error('Invalid data format',
-                          context='process_data.validate',
-                          error_id=ERROR_INVALID_FORMAT)
-            return False
+# Add handlers
+console = LogConsole(name='console', level=L_WARNING)
+file_handler = LogFile(name='app', level=L_DEBUG)
 
+log.add_handler(console)
+log.add_handler(file_handler)
+
+# Normal operation
+log.info('Normal message')
+
+# Temporarily disable console
+console.level = L_DISABLE
+log.warn('Only in file')  # Won't show in console
+
+# Re-enable with different level
+console.level = L_DEBUG
+log.debug('Now in both')
+
+# Remove handler completely
+log.remove_handler('app')
+log.info('Only in console now')
+
+# Get handler by name
+handler = log.get_handler('console')
+print(f'Console level: {handler.level}')
+```
+
+### 10. Custom Timestamp Function
+
+```python
+from logger import Logger
+from logger.console import LogConsole
+import time
+
+# Custom timestamp function (e.g., from RTC)
+def rtc_timestamp():
+    # Your RTC code here
+    # Must return time.struct_time
+    return time.localtime()
+
+# Create logger
+log = Logger()
+log.localtime_callback = rtc_timestamp
+log.add_handler(LogConsole())
+
+log.info('Using RTC timestamp')
+```
+
+### 11. IoT Device Complete Example
+
+```python
+from logger import Logger
+from logger.console import LogConsole
+from logger.file import LogFile
+from logger.syslog import LogSyslog
+from logger.defs import L_DEBUG, L_INFO, L_WARNING, L_ERROR
+from logger.defs import add_system, add_error
+
+# Define systems
+SYS_SENSOR = add_system('sensor')
+SYS_NETWORK = add_system('network')
+SYS_POWER = add_system('power')
+
+# Define errors
+ERROR_SENSOR_TIMEOUT = add_error('Sensor timeout')
+ERROR_NETWORK_DOWN = add_error('Network unreachable')
+ERROR_LOW_BATTERY = add_error('Battery below threshold')
+
+class IoTDevice:
+    def __init__(self):
+        self.log = Logger()
+        self._setup_logging()
+        
+    def _setup_logging(self):
+        # Console for development
+        self.log.add_handler(LogConsole(
+            level=L_DEBUG,
+            print_errors=True  # Show handler errors
+        ))
+        
+        # Local file for critical issues
+        self.log.add_handler(LogFile(
+            name='device',
+            level=L_WARNING,
+            file_path='/flash/logs',
+            file_size_limit=8192,  # 8KB limit on flash
+            file_count=2           # Only 2 backups
+        ))
+        
+        # Remote syslog when connected
+        self.syslog_handler = LogSyslog(
+            name='cloud',
+            level=L_INFO,
+            host='iot.example.com',
+            hostname=self.device_id,
+            appname='iot-sensor',
+            log_format=LogSyslog.FORMAT_RFC5424
+        )
+        
+    def connect_network(self):
         try:
-            result = self.transform_data(data)
-            self.log.info('Processing completed',
-                         context='process_data')
-            return result
+            # Network connection code
+            self.log.info('Network connected', sys=SYS_NETWORK)
+            # Add syslog handler after network is up
+            self.log.add_handler(self.syslog_handler)
         except Exception as e:
-            self.log.critical('Processing failed',
-                             context='process_data.transform',
-                             exception=e)
+            self.log.error('Network connection failed',
+                          sys=SYS_NETWORK,
+                          error_id=ERROR_NETWORK_DOWN,
+                          exception=e)
+                          
+    def read_sensor(self):
+        self.log.debug('Reading sensor', 
+                      sys=SYS_SENSOR,
+                      context='read_sensor')
+        try:
+            # Sensor reading code
+            value = sensor.read()
+            self.log.info(f'Sensor value: {value}',
+                         sys=SYS_SENSOR)
+            return value
+        except TimeoutError:
+            self.log.error('Sensor read timeout',
+                          sys=SYS_SENSOR,
+                          error_id=ERROR_SENSOR_TIMEOUT,
+                          context='read_sensor')
             raise
+                          
+    def check_battery(self):
+        level = self.get_battery_level()
+        if level < 20:
+            self.log.warn('Low battery',
+                         sys=SYS_POWER,
+                         error_id=ERROR_LOW_BATTERY,
+                         context=f'battery_{level}%')
+        return level
+
+# Usage
+device = IoTDevice()
+device.connect_network()
+device.read_sensor()
+device.check_battery()
+```
+
+### 12. Debug vs Production Mode
+
+```python
+from logger import Logger
+from logger.console import LogConsole
+from logger.file import LogFile
+from logger.defs import L_DEBUG, L_INFO, L_ERROR
+
+# Simple debug/production setup
+def create_logger(debug_mode=False):
+    log = Logger()
+    
+    # Console handler - adjust level based on mode
+    log.add_handler(LogConsole(
+        level=L_DEBUG if debug_mode else L_ERROR,
+        print_errors=debug_mode
+    ))
+    
+    # File handler - always log INFO and above
+    log.add_handler(LogFile(
+        name='app',
+        level=L_INFO,
+        file_path='/logs',
+        print_errors=debug_mode
+    ))
+    
+    return log
+
+# Usage
+debug = __debug__  # Or from config/environment
+log = create_logger(debug_mode=debug)
+
+log.debug('Detailed info')  # Only shown in debug mode
+log.info('Normal operation')
+log.error('Always visible')
 ```
 
 ## Contributing
@@ -491,4 +913,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-For more information, bug reports, or feature requests, please visit the [project repository]([GitHub - ekondayan/micropython-logger: Simple but powerfull micropython logging library](https://github.com/ekondayan/micropython-logger).
+For more information, bug reports, or feature requests, please visit the [project repository](https://github.com/ekondayan/micropython-logger).
