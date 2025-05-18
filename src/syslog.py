@@ -15,6 +15,9 @@ class LogSyslog(LogHandler):
     _rfc3164_timestamp_format = const('{} {:2d} {:02d}:{:02d}:{:02d}')
     _rfc3164_format = const('<{level}>{timestamp}%s%s {sys}{context} {err_title}{msg}')
     _rfc5424_format = const('<{level}>1 {timestamp} %s %s - - - BOM{sys}{context} {err_title}{msg}')
+    
+    # Default line format (will be overridden in __init__)
+    _line_format = _rfc3164_format
 
     def __init__(self, name: str, level: int = L_WARNING, host = None, port: int = 514, hostname: str = None, appname: str = None, log_format: int = FORMAT_RFC3164, timeout: int = 1, print_errors: bool = False):
         if log_format not in (self.FORMAT_RFC3164, self.FORMAT_RFC5424):
